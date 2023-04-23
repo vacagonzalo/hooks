@@ -1,0 +1,187 @@
+#!/bin/python3
+from sys import argv
+from os import EX_OK
+from os import EX_CONFIG
+from os import symlink
+from os import listdir
+from os.path import dirname
+from os.path import abspath
+from getopt import getopt
+from getopt import GetoptError
+
+OPTIONS = "hsc:r:"
+LONG_OPTIONS = ["help", "status", "create=", "remove="]
+
+HOOKS = [
+    "applypatch-msg",
+    "commit-msg",
+    "fsmonitor-watchman",
+    "post-update",
+    "pre-applypatch",
+    "pre-commit",
+    "pre-merge-commit",
+    "pre-push",
+    "pre-rebase",
+    "pre-receive",
+    "prepare-commit-msg",
+    "push-to-checkout",
+    "update"
+]
+
+WILDCARDS = ["all"]
+
+
+def parse_arguments(args: 'list' = []) -> 'list':
+    try:
+        optlist, args = getopt(args[1:], OPTIONS, LONG_OPTIONS)
+    except GetoptError as error:
+        print(error)
+        optlist = [("-h", "error")]
+    if len(args) != 0:
+        print("Could not parse this:", args)
+        optlist = [("-h", "error")]
+    if len(optlist) == 0:
+        optlist = [("-h", "error")]
+    return optlist
+
+
+def parse_configuration(optlist: 'list' = []) -> 'list':
+    config = ['help', 'error']
+    command = optlist[0][0]
+
+    # Create command
+    if command == '-c' or command == '--create':
+        parameter = optlist[0][1]
+        if parameter in WILDCARDS or parameter in HOOKS:
+            config = ['create', parameter]
+        else:
+            config = ['help', 'error']
+
+    # Remove command
+    elif command == '-r' or command == '--remove':
+        parameter = optlist[0][1]
+        if parameter in WILDCARDS or parameter in HOOKS:
+            config = ['remove', parameter]
+        else:
+            config = ['help', 'error']
+
+    # Status command
+    elif command == '-s' or command == '--status':
+        config = ['status', '']
+
+    # Help command
+    elif command == '-h' or command == '--help':
+        if optlist[0][1] == 'error':
+            config = ['help', 'error']
+        else:
+            config = ['help', 'normal']
+
+    # Undefined behavior handler
+    else:
+        config = ['help', 'error']
+
+    return config
+
+
+def print_help(config: 'list' = []):
+    help_msg = f"""
+Hooks - A simple githooks mananger
+==================================
+
+List of hooks: {HOOKS}
+
+List of wildcards: {WILDCARDS}
+
+Commands:
+-h or --help   - Shows this message
+-s or --status - Shows hooks' status
+-c or --create - Creates a symbolic link inside .git/hooks
+-r or --remove - Removes a symbolic link inside .git/hooks
+"""
+    print(help_msg)
+    if config == 'normal':
+        exit_code = EX_OK
+    elif config == 'error':
+        exit_code = EX_CONFIG
+    else:
+        exit_code = EX_CONFIG
+    return exit_code
+
+
+def get_paths():
+    repository_path = dirname(dirname(abspath(__file__)))
+    src_path = repository_path + "/hooks/"
+    dst_path = repository_path + "/.git/hooks/"
+    return (src_path, dst_path)
+
+
+def print_status(config: 'list' = []):
+    print("status", config)
+    src_path, dst_path = get_paths()
+    src_files = listdir(src_path)
+    dst_files = listdir(dst_path)
+    status = []
+    title_hook = "hook"
+
+    title_available = "available"
+    cross_available = '\033[91m' + '✘'.center(len(title_available)) + '\033[0m '
+    check_available = '\033[92m' + '✓'.center(len(title_available)) + '\033[0m '
+
+    title_installed = "installed"
+    cross_installed = '\033[91m' + '✘'.center(len(title_installed)) + '\033[0m '
+    check_installed = '\033[92m' + '✓'.center(len(title_installed)) + '\033[0m '
+
+    for hook in HOOKS:
+        available = cross_available
+        installed = cross_installed
+        if hook in src_files:
+            available = check_available
+        if hook in dst_files:
+            installed = check_installed
+        status.append((hook, available, installed))
+    max_str = len(max(HOOKS, key=len))
+    header = title_hook.ljust(max_str) + " " + title_available + " " + title_installed + "\n"
+    table = header
+    for st in status:
+        table = table + f"{st[0].ljust(max_str)} {st[1]} {st[2]}\n"
+    print(table)
+    return EX_OK
+
+
+def create_links(config: 'list' = []):
+    src_path, dst_path = get_paths()
+    src_files = listdir(src_path)
+    if config == 'all':
+        print("create:", HOOKS)
+        for hook in HOOKS:
+            if hook in src_files:
+                src = src_path + hook
+                dst = dst_path + hook
+                symlink(src, dst)
+        return EX_OK
+    else:
+        print("create", config)
+        if config in src_files:
+            src = src_path + config
+            dst = dst_path + config
+            symlink(src, dst)
+            return EX_OK
+        else:
+            return EX_CONFIG
+
+
+def remove_links(config: 'list' = []):
+    print("remove", config)
+    return EX_OK
+
+
+if __name__ == "__main__":
+    optlist = parse_arguments(argv)
+    config = parse_configuration(optlist)
+    run = {
+        'help': print_help,
+        'create': create_links,
+        'remove': remove_links,
+        'status': print_status
+    }
+    exit(run[config[0]](config[1]))
