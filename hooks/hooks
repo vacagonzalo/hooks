@@ -4,6 +4,7 @@ from os import EX_OK
 from os import EX_CONFIG
 from os import symlink
 from os import listdir
+from os import remove
 from os.path import dirname
 from os.path import abspath
 from getopt import getopt
@@ -116,7 +117,6 @@ def get_paths():
 
 
 def print_status(config: 'list' = []):
-    print("status", config)
     src_path, dst_path = get_paths()
     src_files = listdir(src_path)
     dst_files = listdir(dst_path)
@@ -152,7 +152,6 @@ def create_links(config: 'list' = []):
     src_path, dst_path = get_paths()
     src_files = listdir(src_path)
     if config == 'all':
-        print("create:", HOOKS)
         for hook in HOOKS:
             if hook in src_files:
                 src = src_path + hook
@@ -160,7 +159,6 @@ def create_links(config: 'list' = []):
                 symlink(src, dst)
         return EX_OK
     else:
-        print("create", config)
         if config in src_files:
             src = src_path + config
             dst = dst_path + config
@@ -171,7 +169,15 @@ def create_links(config: 'list' = []):
 
 
 def remove_links(config: 'list' = []):
-    print("remove", config)
+    src_path, dst_path = get_paths()
+    dst_files = listdir(dst_path)
+    if config == 'all':
+        for hook in HOOKS:
+            if hook in dst_files:
+                remove(dst_path + hook)
+    else:
+        if config in dst_files:
+            remove(dst_path + config)
     return EX_OK
 
 
