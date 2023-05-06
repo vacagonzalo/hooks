@@ -1,0 +1,23 @@
+#!/bin/python3
+
+from subprocess import run
+from subprocess import PIPE
+from os import EX_OK, EX_CONFIG
+
+
+def check_production_branch():
+    PRODUCTION_BRANCHES = ["main", "develop", "master"]
+    current_branch = run(['git', 'rev-parse', '--abbrev-ref', 'HEAD'], stdout=PIPE).stdout.decode("utf-8").strip()
+    for branch in PRODUCTION_BRANCHES:
+        if current_branch in branch:
+            print("cannot work on:", branch)
+            exit(EX_CONFIG)
+
+
+def main():
+    check_production_branch()
+    exit(EX_OK)
+
+
+if __name__ == '__main__':
+    main()
