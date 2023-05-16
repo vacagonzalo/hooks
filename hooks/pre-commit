@@ -1,21 +1,25 @@
 #!/bin/python3
 
-from subprocess import run
-from subprocess import PIPE
+from pathlib import Path
 from os import EX_OK, EX_CONFIG
+from git import Repo
 
 
-def check_production_branch():
+def get_repository():
+    return Repo(Path().resolve(), search_parent_directories=True)
+
+
+def check_production_branch(repo):
     PRODUCTION_BRANCHES = ["main", "develop", "master"]
-    current_branch = run(['git', 'rev-parse', '--abbrev-ref', 'HEAD'], stdout=PIPE).stdout.decode("utf-8").strip()
+    active_branch = repo.active_branch.name.strip()
     for branch in PRODUCTION_BRANCHES:
-        if current_branch in branch:
-            print("cannot work on:", branch)
+        if active_branch.__eq__(branch):
             exit(EX_CONFIG)
 
 
 def main():
-    check_production_branch()
+    repo = get_repository()
+    check_production_branch(repo)
     exit(EX_OK)
 
 
